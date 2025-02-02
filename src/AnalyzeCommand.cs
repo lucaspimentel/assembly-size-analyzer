@@ -8,7 +8,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
     public override ValidationResult Validate(CommandContext context, AnalyzeCommandSettings settings)
     {
         var result = base.Validate(context, settings);
-        var assemblyPath = Path.GetFullPath(settings.AssemblyPath);
+        var assemblyPath = ExpandPath(settings.AssemblyPath);
 
         if (result.Successful && !File.Exists(assemblyPath))
         {
@@ -20,13 +20,13 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 
     public override int Execute(CommandContext context, AnalyzeCommandSettings settings)
     {
-        var assemblyPath = Path.GetFullPath(settings.AssemblyPath);
+        var assemblyPath = ExpandPath(settings.AssemblyPath);
 
-        AnsiConsole.MarkupLine("Analyzing: [blue]{0}[/]", assemblyPath);
-        AnsiConsole.Markup("Show types: [blue]{0}[/], ", settings.ShowTypes);
-        AnsiConsole.Markup("Max depth: [blue]{0:N0}[/], ", settings.MaxDepth);
-        AnsiConsole.Markup("Min size: [blue]{0:N0}[/], ", settings.MinSize);
-        AnsiConsole.MarkupLine("Namespace filter: [blue]{0}[/]", settings.NamespaceFilter ?? "(none)");
+        AnsiConsole.MarkupLine($"Analyzing: [blue]{assemblyPath}[/]");
+        AnsiConsole.Markup($"Show types: [blue]{settings.ShowTypes}[/], ");
+        AnsiConsole.Markup($"Max depth: [blue]{settings.MaxDepth:N0}[/], ");
+        AnsiConsole.Markup($"Min size: [blue]{FormatSize(settings.MinSize)}[/], ");
+        AnsiConsole.MarkupLine($"Namespace filter: [blue]{settings.NamespaceFilter ?? "(none)"}[/]");
         AnsiConsole.WriteLine();
 
         AssemblyAnalyzer assembly = null!;
@@ -78,6 +78,17 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
             resources);
 
         return 0;
+    }
+
+    private static string ExpandPath(string path)
+    {
+        if (path.StartsWith('~'))
+        {
+            var homePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return Path.Combine(homePath, path.TrimStart('~', '/', '\\'));
+        }
+
+        return Path.GetFullPath(path);
     }
 
     private static void DisplaySizeTree(
