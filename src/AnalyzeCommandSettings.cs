@@ -3,7 +3,7 @@ using Spectre.Console.Cli;
 
 namespace AssemblySizeAnalyzer;
 
-internal sealed class AnalyzeAssemblySizeCommandSettings : CommandSettings
+internal sealed class AnalyzeCommandSettings : CommandSettings
 {
     [CommandArgument(0, "<assemblyPath>")]
     [Description("Path to assembly to analyze.")]

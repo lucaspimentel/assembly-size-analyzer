@@ -3,9 +3,9 @@ using Spectre.Console.Cli;
 
 namespace AssemblySizeAnalyzer;
 
-internal sealed class AnalyzeAssemblySizeCommand : Command<AnalyzeAssemblySizeCommandSettings>
+internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 {
-    public override ValidationResult Validate(CommandContext context, AnalyzeAssemblySizeCommandSettings settings)
+    public override ValidationResult Validate(CommandContext context, AnalyzeCommandSettings settings)
     {
         var result = base.Validate(context, settings);
 
@@ -17,7 +17,7 @@ internal sealed class AnalyzeAssemblySizeCommand : Command<AnalyzeAssemblySizeCo
         return result;
     }
 
-    public override int Execute(CommandContext context, AnalyzeAssemblySizeCommandSettings settings)
+    public override int Execute(CommandContext context, AnalyzeCommandSettings settings)
     {
         AnsiConsole.MarkupLine("Analyzing: [blue]{0}[/]", settings.AssemblyPath);
         AnsiConsole.Markup("Show types: [blue]{0}[/], ", settings.ShowTypes);
@@ -78,7 +78,7 @@ internal sealed class AnalyzeAssemblySizeCommand : Command<AnalyzeAssemblySizeCo
     }
 
     private static void DisplaySizeTree(
-        AnalyzeAssemblySizeCommandSettings settings,
+        AnalyzeCommandSettings settings,
         string rootNodeText,
         long totalComputedSize,
         List<NamespaceNode> rootNamespaces,
@@ -143,7 +143,7 @@ internal sealed class AnalyzeAssemblySizeCommand : Command<AnalyzeAssemblySizeCo
         List<NamespaceNode> nsNodes,
         int currentDepth,
         long totalSize,
-        AnalyzeAssemblySizeCommandSettings settings)
+        AnalyzeCommandSettings settings)
     {
         foreach (var childNamespace in nsNodes.OrderByDescending(n => n.TotalSize))
         {
