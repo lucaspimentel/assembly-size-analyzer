@@ -127,7 +127,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
             rootNamespaces = rootNamespace.ChildNamespaces;
 
             rootNodeText = FormatNode(
-                $"{rootNamespace.NamespaceSegment}",
+                rootNamespace.NamespaceSegment,
                 rootNamespace.TotalSize,
                 rootNamespace.TotalSize,
                 sizeUnits);
