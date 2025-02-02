@@ -47,7 +47,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
                        ctx =>
                        {
                            assembly = AssemblyAnalyzer.Load(assemblyPath);
-                           resources = assembly.AnalyzeResources();
+                           resources = string.IsNullOrEmpty(settings.NamespaceFilter) ? assembly.AnalyzeResources() : [];
                            types = assembly.AnalyzeTypes(settings.NamespaceFilter);
 
                            // dummy root note to hold the tree, won't be displayed
@@ -110,8 +110,9 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         List<NamespaceNode> rootNamespaces,
         List<ResourceSize> resources)
     {
+        var totalNamespaceSize = rootNamespaces.Sum(n => n.TotalSize);
         var totalResourcesSize = resources.Sum(r => r.Size);
-        var totalComputedSize = rootNamespaces.Sum(n => n.TotalSize) + totalResourcesSize;
+        var totalComputedSize = totalNamespaceSize + totalResourcesSize;
 
         // use a single size unit for all nodes in the tree for consistency,
         // instead of different units for each node
@@ -119,7 +120,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 
         string rootNodeText;
 
-        if (rootNamespaces.Count == 0)
+        if (rootNamespaces.Count == 1)
         {
             // if there's only one namespace (for example, when using a namespace filter),
             // show the namespace name as the root node
