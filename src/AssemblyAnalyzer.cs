@@ -46,7 +46,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         return typeSizes;
     }
 
-    public List<ResourceSize> ComputeResourcesSize()
+    public List<ResourceSize> AnalyzeResources()
     {
         List<ResourceSize> resourceSizes = [];
 

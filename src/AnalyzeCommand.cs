@@ -47,7 +47,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
                        ctx =>
                        {
                            assembly = AssemblyAnalyzer.Load(assemblyPath);
-                           resources = assembly.ComputeResourcesSize();
+                           resources = assembly.AnalyzeResources();
                            types = assembly.AnalyzeTypes();
 
                            // dummy root note to hold the tree, won't be displayed
