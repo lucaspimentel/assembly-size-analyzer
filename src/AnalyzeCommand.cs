@@ -26,11 +26,13 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
     public override int Execute(CommandContext context, AnalyzeCommandSettings settings)
     {
         var assemblyPath = ExpandPath(settings.AssemblyPath);
+        var sizeUnits = settings.SizeUnits ?? SizeUnit.Auto;
 
         AnsiConsole.MarkupLine($"Analyzing: [blue]{assemblyPath}[/]");
         AnsiConsole.Markup($"Show types: [blue]{settings.ShowTypes}[/], ");
         AnsiConsole.Markup($"Max depth: [blue]{settings.MaxDepth:N0}[/], ");
-        AnsiConsole.Markup($"Min size: [blue]{FormatSize(settings.MinSize)}[/], ");
+        AnsiConsole.Markup($"Min size: [blue]{FormatSize(settings.MinSize, SizeUnit.Auto)}[/], ");
+        AnsiConsole.Markup($"Units: [blue]{settings.SizeUnits}[/], ");
         AnsiConsole.MarkupLine($"Namespace filter: [blue]{settings.NamespaceFilter ?? "(none)"}[/]");
         AnsiConsole.WriteLine();
 
@@ -62,25 +64,29 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         var totalResourcesSize = resources.Sum(r => r.Size);
         var totalIlSize = types.Sum(t => t.IlSize);
 
-        // update overhead and total size of all nodes in the tree
-        var totalComputedSize = rootNode.ComputeTotalSize() + totalResourcesSize;
-
-        DisplaySizeBreakdownChart(assembly, totalResourcesSize, totalIlSize);
+        DisplaySizeBreakdownChart(assembly.FileSize, assembly.TotalMetadataSize, totalResourcesSize, totalIlSize, sizeUnits);
 
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("The namespace and type sizes in the tree below include IL and an [italic]estimate[/] of metadata size.");
         AnsiConsole.WriteLine("Any unaccounted bytes are shown as \"other\" bytes in the breakdown chart above.");
         AnsiConsole.WriteLine();
 
-        var rootNodeText = $"Total size: {FormatSize(totalComputedSize)}";
+        // update metadata size and total size of all nodes in the tree
+        var totalComputedSize = rootNode.ComputeTotalSize() + totalResourcesSize;
+
+        // use a single size unit for all nodes in the tree for consistency
+        var sizeUnit = sizeUnits == SizeUnit.Auto ? GetBestSizeUnits(totalComputedSize) : sizeUnits;
+
+        var rootNodeText = $"Total size: {FormatSizeWithPercent(totalComputedSize, totalComputedSize, sizeUnit)}";
         var rootNamespaces = rootNode.ChildNamespaces;
 
         DisplaySizeTree(
-            settings,
-            rootNodeText,
+            settings: settings,
+            sizeUnits: sizeUnits,
+            rootNodeText: rootNodeText,
             totalComputedSize: totalComputedSize,
-            rootNamespaces,
-            resources);
+            rootNamespaces: rootNamespaces,
+            resources: resources);
 
         return 0;
     }
@@ -98,6 +104,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 
     private static void DisplaySizeTree(
         AnalyzeCommandSettings settings,
+        SizeUnit sizeUnits,
         string rootNodeText,
         long totalComputedSize,
         List<NamespaceNode> rootNamespaces,
@@ -108,11 +115,11 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         if (resources.Count > 0)
         {
             var totalResourcesSize = resources.Sum(r => r.Size);
-            var resourceNode = tree.AddNode(FormatNode("Embedded resources", totalResourcesSize, totalComputedSize));
+            var resourceNode = tree.AddNode(FormatNode("Embedded resources", totalResourcesSize, totalComputedSize, sizeUnits));
 
             foreach (var resource in resources.OrderByDescending(r => r.Size))
             {
-                resourceNode.AddNode(FormatNode(resource.Name, resource.Size, totalComputedSize));
+                resourceNode.AddNode(FormatNode(resource.Name, resource.Size, totalComputedSize, sizeUnits));
             }
         }
 
@@ -121,22 +128,21 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
             nsNodes: rootNamespaces,
             currentDepth: 1,
             totalSize: totalComputedSize,
-            settings: settings);
+            settings: settings,
+            sizeUnits: sizeUnits);
 
         AnsiConsole.Write(tree);
     }
 
-    private static void DisplaySizeBreakdownChart(AssemblyAnalyzer assembly, long totalResourcesSize, long totalIlSize)
+    private static void DisplaySizeBreakdownChart(long fileSize, long totalMetadataSize, long totalResourcesSize, long totalIlSize, SizeUnit sizeUnits)
     {
-        var breakdownChart = new BreakdownChart()
-                             .Width(Console.WindowWidth)
-                             .UseValueFormatter(d => $"{FormatSizeAndPercent((long)d, assembly.FileSize)}");
-
-        var otherSize = assembly.FileSize - totalIlSize - assembly.TotalMetadataSize - totalResourcesSize;
+        // use a single size unit for all parts of the chart for consistency
+        var sizeUnit = sizeUnits == SizeUnit.Auto ? GetBestSizeUnits(fileSize) : sizeUnits;
+        var otherSize = fileSize - totalIlSize - totalMetadataSize - totalResourcesSize;
 
         (string Text, long Size, Color Color)[] sizes =
         [
-            ("Metadata", assembly.TotalMetadataSize, Color.Blue),
+            ("Metadata", totalMetadataSize, Color.Blue),
             ("Resources", totalResourcesSize, Color.Yellow),
             ("IL", totalIlSize, Color.Green),
             ("Other", otherSize, Color.Red)
@@ -145,13 +151,17 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         var displayedSized = sizes.Where(s => s.Size > 0)
                                   .OrderByDescending(s => s.Size);
 
+        var breakdownChart = new BreakdownChart()
+                             .Width(Console.WindowWidth)
+                             .UseValueFormatter(d => $"{FormatSizeWithPercent((long)d, fileSize, sizeUnit)}");
+
         foreach (var (text, size, color) in displayedSized)
         {
             breakdownChart.AddItem(text, size, color);
         }
 
         var panel = new Panel(breakdownChart)
-                    .Header($"[blue]Assembly file size {FormatSize(assembly.FileSize)}[/]")
+                    .Header($"[blue]Assembly file size {FormatSize(fileSize, sizeUnit)}[/]")
                     .Padding(horizontal: 3, vertical: 1);
 
         AnsiConsole.Write(panel);
@@ -162,7 +172,8 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         List<NamespaceNode> nsNodes,
         int currentDepth,
         long totalSize,
-        AnalyzeCommandSettings settings)
+        AnalyzeCommandSettings settings,
+        SizeUnit sizeUnits)
     {
         foreach (var childNamespace in nsNodes.OrderByDescending(n => n.TotalSize))
         {
@@ -186,14 +197,15 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
                 continue;
             }
 
-            var childTreeNode = treeNodes.AddNode(FormatNode($"{childNamespace.NamespaceSegment}", childNamespace.TotalSize, totalSize));
+            var childTreeNode = treeNodes.AddNode(FormatNode($"{childNamespace.NamespaceSegment}", childNamespace.TotalSize, totalSize, sizeUnits));
 
             AddNamespaceNodes(
                 treeNodes: childTreeNode,
                 nsNodes: childNamespace.ChildNamespaces,
                 currentDepth: currentDepth + 1,
                 totalSize: totalSize,
-                settings: settings);
+                settings: settings,
+                sizeUnits: sizeUnits);
 
             if (settings.ShowTypes)
             {
@@ -215,7 +227,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
                         continue;
                     }
 
-                    childTreeNode.AddNode(FormatNode($"[green]{child.TypeName}[/]", child.TotalSize, totalSize));
+                    childTreeNode.AddNode(FormatNode($"[green]{child.TypeName}[/]", child.TotalSize, totalSize, sizeUnits));
                 }
             }
         }
@@ -241,30 +253,63 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         return GetOrCreateNamespaceNode(fullNs, remainingNsSegments[1..], newChild);
     }
 
-    private static string FormatNode(string text, long value, long total)
+    private static string FormatNode(string text, long value, long total, SizeUnit unit)
     {
-        return $"{text} {FormatSizeAndPercent(value, total)}";
+        return $"{text} {FormatSizeWithPercent(value, total, unit)}";
     }
 
-    private static string FormatSizeAndPercent(long value, long total)
+    private static string FormatSizeWithPercent(long value, long total, SizeUnit unit)
     {
-        return $"[bold yellow]{FormatSize(value)}[/] {FormatPercent(value, total)}";
+        return $"[bold yellow]{FormatSize(value, unit)}[/] [dim]({FormatPercent(value, total)})[/]";
     }
 
-    private static string FormatSize(long size)
+    private static string FormatSize(long size, SizeUnit unit)
     {
-        return size switch
+        if (unit == SizeUnit.Auto)
         {
-            >= 1_000_000 => FormatSizeMb(size),
-            >= 1_000 => $"{size / 1_000.0:F2} KB",
-            _ => $"{size:N0} bytes"
-        };
-    }
+            unit = GetBestSizeUnits(size);
+        }
 
-    private static string FormatSizeMb(long size) => $"{size / 1_000_000.0:F2} MB";
+        return unit switch
+        {
+            SizeUnit.B => Format(size, 1, "bytes"),
+            SizeUnit.Kb => Format(size, 1_000, "KB"),
+            SizeUnit.Mb => Format(size, 1_000_000, "MB"),
+
+            // silence compiler warning, we handle SizeUnit.Auto above
+            SizeUnit.Auto => throw new ArgumentException("Invalid unit: Auto", nameof(unit)),
+            _ => throw new ArgumentException($"Invalid units: {unit}", nameof(unit))
+        };
+
+        static string Format(long size, float unitSize, string unit)
+        {
+            const double minValue = 0.01;
+            var value = size / unitSize;
+
+            return value < minValue ?
+                $"< {minValue:#,##0.##} {unit}" :
+                $"{value:#,##0.##} {unit}";
+        }
+    }
 
     private static string FormatPercent(long value, long total)
     {
-        return $"[dim]({value * 100.0 / total:F2}%)[/]";
+        const double minimumPercent = 0.001;
+        var percent = value / (float)total;
+
+        return percent < minimumPercent ?
+            $"< {minimumPercent:P1}" :
+            $"{percent:P1}";
+    }
+
+    private static SizeUnit GetBestSizeUnits(long fileSize)
+    {
+        var sizeUnit = fileSize switch
+        {
+            < 1_000 => SizeUnit.B,
+            < 1_000_000 => SizeUnit.Kb,
+            _ => SizeUnit.Mb
+        };
+        return sizeUnit;
     }
 }

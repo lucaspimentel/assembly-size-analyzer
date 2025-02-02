@@ -27,4 +27,8 @@ internal sealed class AnalyzeCommandSettings : CommandSettings
     [CommandOption("--filter")]
     [Description("Only include the specified namespace and its children.")]
     public string? NamespaceFilter { get; init; }
+
+    [CommandOption("--size-units|--size-unit")]
+    [Description("The size unit to use: \"auto\", \"mb\", \"kb\", or \"b\". Default: \"auto\".")]
+    public SizeUnit? SizeUnits { get; init; }
 }
