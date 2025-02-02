@@ -20,7 +20,7 @@ internal sealed class AnalyzeCommandSettings : CommandSettings
     public int MaxDepth { get; init; }
 
     [CommandOption("--min-size")]
-    [DefaultValue(1024)]
+    [DefaultValue(1000)]
     [Description("Only include nodes that are larger than the specified size in bytes.")]
     public int MinSize { get; init; }
 
