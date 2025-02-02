@@ -19,7 +19,6 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
             }
         }
 
-
         return result;
     }
 
@@ -37,58 +36,59 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 
         AssemblyAnalyzer assembly = null!;
         List<ResourceSize> resources = null!;
-        List<TypeSize> types = null!;
+        List<TypeSize> types;
+        long totalResourcesSize = 0;
+        long totalIlSize = 0;
+        NamespaceNode rootNode = null!;
 
         AnsiConsole.Status()
-                   .Start("Analyzing assembly...", _ =>
-                   {
-                       assembly = AssemblyAnalyzer.Load(assemblyPath);
-                       resources = assembly.ComputeResourcesSize();
-                       types = assembly.AnalyzeTypes();
-                   });
+                   .Start(
+                       "Analyzing assembly...",
+                       ctx =>
+                       {
+                           assembly = AssemblyAnalyzer.Load(assemblyPath);
+                           resources = assembly.ComputeResourcesSize();
+                           types = assembly.AnalyzeTypes();
+
+                           // dummy root note to hold the tree, won't be displayed
+                           rootNode = new NamespaceNode(string.Empty, string.Empty);
+
+                           foreach (var type in types)
+                           {
+                               var nsSegments = new ArraySegment<string>(type.Namespace.Split('.'));
+                               var node = GetOrCreateNamespaceNode(type.Namespace, nsSegments, rootNode);
+                               node.AddChild(type);
+                           }
+
+                           totalResourcesSize = resources.Sum(r => r.Size);
+                           totalIlSize = types.Sum(t => t.IlSize);
+
+                           // update metadata size and total size of all nodes in the tree
+                           _ = rootNode.ComputeTotalSize();
+                       });
 
         AnsiConsole.MarkupLine($"Assembly: [blue]{assembly.FullName}[/]");
         AnsiConsole.WriteLine();
 
-        // dummy root note to hold the tree, won't be displayed
-        var rootNode = new NamespaceNode(string.Empty, string.Empty);
-
-        foreach (var type in types)
-        {
-            var nsSegments = new ArraySegment<string>(type.Namespace.Split('.'));
-            var node = GetOrCreateNamespaceNode(type.Namespace, nsSegments, rootNode);
-            node.AddChild(type);
-        }
-
-        var totalResourcesSize = resources.Sum(r => r.Size);
-        var totalIlSize = types.Sum(t => t.IlSize);
-
         // use a single size unit for all labels in the chart for consistency,
         // instead of different units for each label
         var breakdownChartSizeUnits = settings.SizeUnits == SizeUnit.Auto ? GetBestSizeUnits(assembly.FileSize) : settings.SizeUnits;
-        DisplaySizeBreakdownChart(assembly.FileSize, assembly.TotalMetadataSize, totalResourcesSize, totalIlSize, breakdownChartSizeUnits);
+
+        PrintSizeBreakdownChart(
+            assembly.FileSize,
+            assembly.TotalMetadataSize,
+            totalResourcesSize,
+            totalIlSize,
+            breakdownChartSizeUnits);
 
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("The namespace and type sizes in the tree below include IL and an [italic]estimate[/] of metadata size.");
         AnsiConsole.WriteLine("Any unaccounted bytes are shown as \"other\" bytes in the breakdown chart above.");
         AnsiConsole.WriteLine();
 
-        // update metadata size and total size of all nodes in the tree
-        var totalComputedSize = rootNode.ComputeTotalSize() + totalResourcesSize;
-
-        // use a single size unit for all nodes in the tree for consistency,
-        // instead of different units for each node
-        var treeSizeUnits = settings.SizeUnits == SizeUnit.Auto ? GetBestSizeUnits(totalComputedSize) : settings.SizeUnits;
-
-        var rootNodeText = $"Total size: {FormatSizeWithPercent(totalComputedSize, totalComputedSize, treeSizeUnits)}";
-        var rootNamespaces = rootNode.ChildNamespaces;
-
-        DisplaySizeTree(
+        PrintSizeTree(
             settings: settings,
-            sizeUnits: treeSizeUnits,
-            rootNodeText: rootNodeText,
-            totalComputedSize: totalComputedSize,
-            rootNamespaces: rootNamespaces,
+            rootNamespaces: rootNode.ChildNamespaces,
             resources: resources);
 
         return 0;
@@ -105,26 +105,39 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         return Path.GetFullPath(path);
     }
 
-    private static void DisplaySizeTree(
+    private static void PrintSizeTree(
         AnalyzeCommandSettings settings,
-        SizeUnit sizeUnits,
-        string rootNodeText,
-        long totalComputedSize,
         List<NamespaceNode> rootNamespaces,
         List<ResourceSize> resources)
     {
-        var tree = new Tree(rootNodeText);
+        var totalResourcesSize = resources.Sum(r => r.Size);
+        var totalComputedSize = rootNamespaces.Sum(n => n.TotalSize) + totalResourcesSize;
 
-        if (resources.Count > 0)
+        // use a single size unit for all nodes in the tree for consistency,
+        // instead of different units for each node
+        var sizeUnits = settings.SizeUnits == SizeUnit.Auto ? GetBestSizeUnits(totalComputedSize) : settings.SizeUnits;
+
+        string rootNodeText;
+
+        if (rootNamespaces.Count == 0)
         {
-            var totalResourcesSize = resources.Sum(r => r.Size);
-            var resourceNode = tree.AddNode(FormatNode("Embedded resources", totalResourcesSize, totalComputedSize, sizeUnits));
+            // if there's only one namespace (for example, when using a namespace filter),
+            // show the namespace name as the root node
+            var rootNamespace = rootNamespaces[0];
+            rootNamespaces = rootNamespace.ChildNamespaces;
 
-            foreach (var resource in resources.OrderByDescending(r => r.Size))
-            {
-                resourceNode.AddNode(FormatNode(resource.Name, resource.Size, totalComputedSize, sizeUnits));
-            }
+            rootNodeText = FormatNode(
+                $"{rootNamespace.NamespaceSegment}",
+                rootNamespace.TotalSize,
+                rootNamespace.TotalSize,
+                sizeUnits);
         }
+        else
+        {
+            rootNodeText = FormatNode("Total", totalComputedSize, totalComputedSize, sizeUnits);
+        }
+
+        var tree = new Tree(rootNodeText);
 
         AddNamespaceNodes(
             treeNodes: tree,
@@ -134,10 +147,20 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
             settings: settings,
             sizeUnits: sizeUnits);
 
+        if (resources.Count > 0)
+        {
+            var resourceNode = tree.AddNode(FormatNode("Embedded resources", totalResourcesSize, totalComputedSize, sizeUnits));
+
+            foreach (var resource in resources.OrderByDescending(r => r.Size))
+            {
+                resourceNode.AddNode(FormatNode(resource.Name, resource.Size, totalComputedSize, sizeUnits));
+            }
+        }
+
         AnsiConsole.Write(new Padder(tree).PadLeft(1));
     }
 
-    private static void DisplaySizeBreakdownChart(long fileSize, long totalMetadataSize, long totalResourcesSize, long totalIlSize, SizeUnit sizeUnits)
+    private static void PrintSizeBreakdownChart(long fileSize, long totalMetadataSize, long totalResourcesSize, long totalIlSize, SizeUnit sizeUnits)
     {
         var otherSize = fileSize - totalIlSize - totalMetadataSize - totalResourcesSize;
 

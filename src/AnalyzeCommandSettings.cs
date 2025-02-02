@@ -24,7 +24,7 @@ internal sealed class AnalyzeCommandSettings : CommandSettings
     [Description("Only include nodes that are larger than the specified size in bytes.")]
     public int MinSize { get; init; }
 
-    [CommandOption("--filter")]
+    [CommandOption("--namespace")]
     [Description("Only include the specified namespace and its children.")]
     public string? NamespaceFilter { get; init; }
 
