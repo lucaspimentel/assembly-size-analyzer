@@ -71,7 +71,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     private static long ComputeIlSize(TypeDefinition type)
     {
-        // 1. IL Code Size (method bodies)
+        // IL Code Size (method bodies)
         if (type.HasMethods)
         {
             return type.Methods
@@ -103,7 +103,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         // Static Fields (estimated based on type)
         total += type.Fields.Where(f => f.IsStatic).Sum(f => GetTypeSize(f.FieldType));
 
-        // String constants
+        // String Constants
         total += type.Fields.Where(f => f.HasConstant && f.Constant is string).Sum(f => utf8.GetByteCount((string)f.Constant));
 
         // Nested Types (recursive)
