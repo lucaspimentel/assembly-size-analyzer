@@ -23,7 +23,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         using (var stream = File.OpenRead(path))
         using (var peReader = new PEReader(stream))
         {
-            TotalMetadataSize = peReader.GetMetadata().Length;
+            TotalMetadataSize = peReader.PEHeaders.MetadataSize;
         }
 
         _assembly = AssemblyDefinition.ReadAssembly(path);
