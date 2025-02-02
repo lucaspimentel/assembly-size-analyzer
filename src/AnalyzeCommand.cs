@@ -8,12 +8,17 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
     public override ValidationResult Validate(CommandContext context, AnalyzeCommandSettings settings)
     {
         var result = base.Validate(context, settings);
-        var assemblyPath = ExpandPath(settings.AssemblyPath);
 
-        if (result.Successful && !File.Exists(assemblyPath))
+        if (!string.IsNullOrEmpty(settings.AssemblyPath))
         {
-            return ValidationResult.Error($"File '{assemblyPath}' not found.");
+            var assemblyPath = ExpandPath(settings.AssemblyPath);
+
+            if (!File.Exists(assemblyPath))
+            {
+                return ValidationResult.Error($"File '{assemblyPath}' not found.");
+            }
         }
+
 
         return result;
     }
