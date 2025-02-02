@@ -54,20 +54,16 @@ public sealed class AssemblyAnalyzer : IDisposable
         return typeSizes;
     }
 
-    public List<ResourceSize> AnalyzeResources()
+    public List<ResourceSize> ComputeResourcesSize()
     {
         List<ResourceSize> resourceSizes = [];
 
-        var module = _assembly.MainModule;
+        var resources = _assembly.MainModule.Resources;
+        resourceSizes.Capacity = resources.Count;
 
-        if (module.HasResources)
+        foreach (var embeddedResource in resources.OfType<EmbeddedResource>())
         {
-            resourceSizes.Capacity = module.Resources.Count;
-
-            foreach (var embeddedResource in module.Resources.OfType<EmbeddedResource>())
-            {
-                resourceSizes.Add(new ResourceSize(embeddedResource.Name, embeddedResource.GetResourceData().Length));
-            }
+            resourceSizes.Add(new ResourceSize(embeddedResource.Name, embeddedResource.GetResourceData().Length));
         }
 
         return resourceSizes;

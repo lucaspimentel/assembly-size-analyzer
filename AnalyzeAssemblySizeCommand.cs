@@ -34,7 +34,7 @@ internal sealed class AnalyzeAssemblySizeCommand : Command<AnalyzeAssemblySizeCo
                    .Start("Analyzing assembly...", _ =>
                    {
                        assembly = AssemblyAnalyzer.Load(settings.AssemblyPath);
-                       resources = assembly.AnalyzeResources();
+                       resources = assembly.ComputeResourcesSize();
                        types = assembly.AnalyzeTypes();
                    });
 
