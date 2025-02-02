@@ -8,11 +8,7 @@ public sealed class AssemblyAnalyzer : IDisposable
 {
     private readonly AssemblyDefinition _assembly;
 
-    public string Path { get; }
-
-    public string FullName { get; }
-
-    public string ModuleName { get; }
+    public string FullName => _assembly.FullName;
 
     public long FileSize { get; }
 
@@ -27,11 +23,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         }
 
         _assembly = AssemblyDefinition.ReadAssembly(path);
-
-        Path = path;
-        FullName = _assembly.FullName;
-        ModuleName = _assembly.MainModule.Name;
-        FileSize = new FileInfo(Path).Length;
+        FileSize = new FileInfo(path).Length;
     }
 
     public static AssemblyAnalyzer Load(string path)
