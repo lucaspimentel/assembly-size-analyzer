@@ -26,7 +26,6 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
     public override int Execute(CommandContext context, AnalyzeCommandSettings settings)
     {
         var assemblyPath = ExpandPath(settings.AssemblyPath);
-        var sizeUnits = settings.SizeUnits ?? SizeUnit.Auto;
 
         AnsiConsole.MarkupLine($"Analyzing: [blue]{assemblyPath}[/]");
         AnsiConsole.Markup($"Show types: [blue]{settings.ShowTypes}[/], ");
@@ -64,7 +63,10 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         var totalResourcesSize = resources.Sum(r => r.Size);
         var totalIlSize = types.Sum(t => t.IlSize);
 
-        DisplaySizeBreakdownChart(assembly.FileSize, assembly.TotalMetadataSize, totalResourcesSize, totalIlSize, sizeUnits);
+        // use a single size unit for all labels in the chart for consistency,
+        // instead of different units for each label
+        var breakdownChartSizeUnits = settings.SizeUnits == SizeUnit.Auto ? GetBestSizeUnits(assembly.FileSize) : settings.SizeUnits;
+        DisplaySizeBreakdownChart(assembly.FileSize, assembly.TotalMetadataSize, totalResourcesSize, totalIlSize, breakdownChartSizeUnits);
 
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("The namespace and type sizes in the tree below include IL and an [italic]estimate[/] of metadata size.");
@@ -74,15 +76,16 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         // update metadata size and total size of all nodes in the tree
         var totalComputedSize = rootNode.ComputeTotalSize() + totalResourcesSize;
 
-        // use a single size unit for all nodes in the tree for consistency
-        var sizeUnit = sizeUnits == SizeUnit.Auto ? GetBestSizeUnits(totalComputedSize) : sizeUnits;
+        // use a single size unit for all nodes in the tree for consistency,
+        // instead of different units for each node
+        var treeSizeUnits = settings.SizeUnits == SizeUnit.Auto ? GetBestSizeUnits(totalComputedSize) : settings.SizeUnits;
 
-        var rootNodeText = $"Total size: {FormatSizeWithPercent(totalComputedSize, totalComputedSize, sizeUnit)}";
+        var rootNodeText = $"Total size: {FormatSizeWithPercent(totalComputedSize, totalComputedSize, treeSizeUnits)}";
         var rootNamespaces = rootNode.ChildNamespaces;
 
         DisplaySizeTree(
             settings: settings,
-            sizeUnits: sizeUnits,
+            sizeUnits: treeSizeUnits,
             rootNodeText: rootNodeText,
             totalComputedSize: totalComputedSize,
             rootNamespaces: rootNamespaces,
@@ -136,8 +139,6 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 
     private static void DisplaySizeBreakdownChart(long fileSize, long totalMetadataSize, long totalResourcesSize, long totalIlSize, SizeUnit sizeUnits)
     {
-        // use a single size unit for all parts of the chart for consistency
-        var sizeUnit = sizeUnits == SizeUnit.Auto ? GetBestSizeUnits(fileSize) : sizeUnits;
         var otherSize = fileSize - totalIlSize - totalMetadataSize - totalResourcesSize;
 
         (string Text, long Size, Color Color)[] sizes =
@@ -153,7 +154,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 
         var breakdownChart = new BreakdownChart()
                              .Width(Console.WindowWidth)
-                             .UseValueFormatter(d => $"{FormatSizeWithPercent((long)d, fileSize, sizeUnit)}");
+                             .UseValueFormatter(d => $"{FormatSizeWithPercent((long)d, fileSize, sizeUnits)}");
 
         foreach (var (text, size, color) in displayedSized)
         {
@@ -161,7 +162,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         }
 
         var panel = new Panel(breakdownChart)
-                    .Header($"[blue]Assembly file size {FormatSize(fileSize, sizeUnit)}[/]")
+                    .Header($"[blue]Assembly file size {FormatSize(fileSize, sizeUnits)}[/]")
                     .Padding(horizontal: 3, vertical: 1);
 
         AnsiConsole.Write(panel);

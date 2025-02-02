@@ -29,6 +29,7 @@ internal sealed class AnalyzeCommandSettings : CommandSettings
     public string? NamespaceFilter { get; init; }
 
     [CommandOption("--size-units|--size-unit")]
+    [DefaultValue(SizeUnit.Auto)]
     [Description("The size unit to use: \"auto\", \"mb\", \"kb\", or \"b\". Default: \"auto\".")]
-    public SizeUnit? SizeUnits { get; init; }
+    public SizeUnit SizeUnits { get; init; }
 }
