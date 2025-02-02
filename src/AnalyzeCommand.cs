@@ -134,7 +134,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
             settings: settings,
             sizeUnits: sizeUnits);
 
-        AnsiConsole.Write(tree);
+        AnsiConsole.Write(new Padder(tree).PadLeft(1));
     }
 
     private static void DisplaySizeBreakdownChart(long fileSize, long totalMetadataSize, long totalResourcesSize, long totalIlSize, SizeUnit sizeUnits)
@@ -165,7 +165,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
                     .Header($"[blue]Assembly file size {FormatSize(fileSize, sizeUnits)}[/]")
                     .Padding(horizontal: 3, vertical: 1);
 
-        AnsiConsole.Write(panel);
+        AnsiConsole.Write(new Padder(child: panel).Padding(horizontal: 1, vertical: 0));
     }
 
     private static void AddNamespaceNodes(
