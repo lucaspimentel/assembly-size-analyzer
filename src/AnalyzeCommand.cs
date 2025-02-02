@@ -8,10 +8,11 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
     public override ValidationResult Validate(CommandContext context, AnalyzeCommandSettings settings)
     {
         var result = base.Validate(context, settings);
+        var assemblyPath = Path.GetFullPath(settings.AssemblyPath);
 
-        if (result.Successful && !File.Exists(settings.AssemblyPath))
+        if (result.Successful && !File.Exists(assemblyPath))
         {
-            return ValidationResult.Error($"The specified assembly '{settings.AssemblyPath}' does not exist.");
+            return ValidationResult.Error($"File '{assemblyPath}' not found.");
         }
 
         return result;
@@ -19,7 +20,9 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 
     public override int Execute(CommandContext context, AnalyzeCommandSettings settings)
     {
-        AnsiConsole.MarkupLine("Analyzing: [blue]{0}[/]", settings.AssemblyPath);
+        var assemblyPath = Path.GetFullPath(settings.AssemblyPath);
+
+        AnsiConsole.MarkupLine("Analyzing: [blue]{0}[/]", assemblyPath);
         AnsiConsole.Markup("Show types: [blue]{0}[/], ", settings.ShowTypes);
         AnsiConsole.Markup("Max depth: [blue]{0:N0}[/], ", settings.MaxDepth);
         AnsiConsole.Markup("Min size: [blue]{0:N0}[/], ", settings.MinSize);
@@ -33,7 +36,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         AnsiConsole.Status()
                    .Start("Analyzing assembly...", _ =>
                    {
-                       assembly = AssemblyAnalyzer.Load(settings.AssemblyPath);
+                       assembly = AssemblyAnalyzer.Load(assemblyPath);
                        resources = assembly.ComputeResourcesSize();
                        types = assembly.AnalyzeTypes();
                    });
