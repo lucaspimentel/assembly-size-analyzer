@@ -31,34 +31,20 @@ public sealed class AssemblyAnalyzer : IDisposable
         return new AssemblyAnalyzer(path);
     }
 
-    public List<TypeSize> AnalyzeTypes()
+    public List<TypeSize> AnalyzeTypes(string? @namespace)
     {
-        List<TypeSize> typeSizes = [];
-
-        var module = _assembly.MainModule;
-        typeSizes.Capacity = module.Types.Count;
-
-        foreach (var type in module.Types)
-        {
-            typeSizes.Add(new TypeSize(type.FullName, ComputeIlSize(type), ComputeMetadataSize(type)));
-        }
-
-        return typeSizes;
+        return _assembly.MainModule.Types
+                        .Where(t => @namespace == null || t.FullName.StartsWith(@namespace))
+                        .Select(t => new TypeSize(t.FullName, ComputeIlSize(t), ComputeMetadataSize(t)))
+                        .ToList();
     }
 
     public List<ResourceSize> AnalyzeResources()
     {
-        List<ResourceSize> resourceSizes = [];
-
-        var resources = _assembly.MainModule.Resources;
-        resourceSizes.Capacity = resources.Count;
-
-        foreach (var embeddedResource in resources.OfType<EmbeddedResource>())
-        {
-            resourceSizes.Add(new ResourceSize(embeddedResource.Name, embeddedResource.GetResourceData().Length));
-        }
-
-        return resourceSizes;
+        return _assembly.MainModule.Resources
+                        .OfType<EmbeddedResource>()
+                        .Select(r => new ResourceSize(r.Name, r.GetResourceData().Length))
+                        .ToList();
     }
 
     private static long ComputeIlSize(TypeDefinition type)

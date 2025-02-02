@@ -48,7 +48,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
                        {
                            assembly = AssemblyAnalyzer.Load(assemblyPath);
                            resources = assembly.AnalyzeResources();
-                           types = assembly.AnalyzeTypes();
+                           types = assembly.AnalyzeTypes(settings.NamespaceFilter);
 
                            // dummy root note to hold the tree, won't be displayed
                            rootNode = new NamespaceNode(string.Empty, string.Empty);
