@@ -6,6 +6,12 @@
     <RootNamespace>AssemblySizeAnalyzer</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>false</PublishTrimmed>
+    <SelfContained>false</SelfContained>
+
+    <AssemblyName>AnalyzeAssemblySize</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
