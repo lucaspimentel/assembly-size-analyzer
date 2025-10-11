@@ -33,10 +33,34 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     public List<TypeSize> AnalyzeTypes(string? @namespace)
     {
-        return _assembly.MainModule.Types
-                        .Where(t => @namespace == null || t.FullName.StartsWith(@namespace))
-                        .Select(t => new TypeSize(t.FullName, ComputeIlSize(t), ComputeMetadataSize(t)))
-                        .ToList();
+        // First pass: compute per-type metadata
+        var types = _assembly.MainModule.Types
+                              .Where(t => @namespace == null || t.FullName.StartsWith(@namespace))
+                              .Select(t => new TypeSize(t.FullName, ComputeIlSize(t), ComputeMetadataSize(t)))
+                              .ToList();
+
+        // Calculate unaccounted metadata (assembly-level overhead)
+        var computedMetadata = types.Sum(t => t.OverheadSize);
+        var unaccountedMetadata = TotalMetadataSize - computedMetadata;
+
+        // If we have unaccounted metadata, distribute it proportionally across types
+        if (unaccountedMetadata > 0 && types.Count > 0)
+        {
+            var totalComputedSize = types.Sum(t => t.TotalSize);
+
+            if (totalComputedSize > 0)
+            {
+                types = types.Select(t =>
+                {
+                    // Distribute unaccounted metadata proportionally to each type's size
+                    var proportion = (double)t.TotalSize / totalComputedSize;
+                    var additionalMetadata = (long)(unaccountedMetadata * proportion);
+                    return new TypeSize(t.FullName, t.IlSize, t.OverheadSize + additionalMetadata);
+                }).ToList();
+            }
+        }
+
+        return types;
     }
 
     public List<ResourceSize> AnalyzeResources()
@@ -60,7 +84,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         return 0;
     }
 
-    private static long ComputeMetadataSize(TypeDefinition type)
+    private long ComputeMetadataSize(TypeDefinition type)
     {
         long total = 0;
 
@@ -68,6 +92,7 @@ public sealed class AssemblyAnalyzer : IDisposable
         total += type.Methods.Count * 16;    // Approximate size per method entry
         total += type.Fields.Count * 12;     // Approximate size per field entry
         total += type.Properties.Count * 10; // Approximate size per property
+        total += type.Events.Count * 10;     // Approximate size per event
 
         // String Metadata (names of types, methods, fields, etc.)
         var utf8 = Encoding.UTF8;
@@ -77,6 +102,30 @@ public sealed class AssemblyAnalyzer : IDisposable
         total += type.Fields.Sum(f => utf8.GetByteCount(f.Name));
         total += type.Properties.Sum(p => utf8.GetByteCount(p.Name));
         total += type.Events.Sum(e => utf8.GetByteCount(e.Name));
+
+        // Custom attributes on type and members
+        total += type.CustomAttributes.Count * 20;
+        total += type.Methods.Sum(m => m.CustomAttributes.Count * 20);
+        total += type.Fields.Sum(f => f.CustomAttributes.Count * 20);
+        total += type.Properties.Sum(p => p.CustomAttributes.Count * 20);
+        total += type.Events.Sum(e => e.CustomAttributes.Count * 20);
+
+        // Method signatures and parameter metadata
+        total += type.Methods.Sum(m => m.Parameters.Count * 8);
+
+        // Generic parameters
+        if (type.HasGenericParameters)
+        {
+            total += type.GenericParameters.Count * 20;
+        }
+
+        total += type.Methods.Where(m => m.HasGenericParameters).Sum(m => m.GenericParameters.Count * 20);
+
+        // Interfaces
+        if (type.HasInterfaces)
+        {
+            total += type.Interfaces.Count * 8;
+        }
 
         // Static Fields (estimated based on type)
         total += type.Fields.Where(f => f.IsStatic).Sum(f => GetTypeSize(f.FieldType));
