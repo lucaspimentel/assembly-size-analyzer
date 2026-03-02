@@ -7,3 +7,7 @@ For a version of **Sizer.Net** that targets .NET 9, see fork: https://github.com
 Screenshot:
 
 ![Screenshot](screenshot.png)
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
