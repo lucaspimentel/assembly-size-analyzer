@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Spectre.Console;
 using Spectre.Console.Cli;
 
@@ -26,6 +27,54 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
     {
         var assemblyPath = ExpandPath(settings.AssemblyPath);
 
+        var assembly = AssemblyAnalyzer.Load(assemblyPath);
+        var resources = assembly.AnalyzeResources();
+        var allTypes = assembly.AnalyzeTypes(null);
+
+        if (settings.Json)
+        {
+            return ExecuteJson(assembly, allTypes, resources);
+        }
+
+        return ExecuteInteractive(assemblyPath, settings, assembly, allTypes, resources);
+    }
+
+    private static int ExecuteJson(AssemblyAnalyzer assembly, List<TypeSize> allTypes, List<ResourceSize> resources)
+    {
+        var jsonData = new
+        {
+            assemblyName = assembly.FullName,
+            fileSize = assembly.FileSize,
+            types = allTypes.Select(t => new
+            {
+                name = t.FullName,
+                ilSize = t.IlSize,
+                metadataSize = t.OverheadSize
+            }),
+            resources = resources.Select(r => new
+            {
+                name = r.Name,
+                size = r.Size
+            })
+        };
+
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+
+        Console.Out.WriteLine(JsonSerializer.Serialize(jsonData, options));
+        return 0;
+    }
+
+    private static int ExecuteInteractive(
+        string assemblyPath,
+        AnalyzeCommandSettings settings,
+        AssemblyAnalyzer assembly,
+        List<TypeSize> allTypes,
+        List<ResourceSize> resources)
+    {
         AnsiConsole.MarkupLine($"Analyzing: [blue]{assemblyPath}[/]");
         AnsiConsole.Markup($"Show types: [blue]{settings.ShowTypes}[/], ");
         AnsiConsole.Markup($"Max depth: [blue]{settings.MaxDepth:N0}[/], ");
@@ -34,53 +83,31 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         AnsiConsole.MarkupLine($"Namespace filter: [blue]{settings.NamespaceFilter ?? "(none)"}[/]");
         AnsiConsole.WriteLine();
 
-        AssemblyAnalyzer assembly = null!;
-        List<ResourceSize> resources = null!;
-        List<TypeSize> allTypes = null!;
-        List<TypeSize> filteredTypes = null!;
-        long fullResourcesSize = 0;
-        long fullIlSize = 0;
-        long fullMetadataSize = 0;
-        long filteredIlSize = 0;
-        long filteredMetadataSize = 0;
-        NamespaceNode rootNode = null!;
         var hasFilter = !string.IsNullOrEmpty(settings.NamespaceFilter);
+        var fullResourcesSize = resources.Sum(r => r.Size);
+        var fullIlSize = allTypes.Sum(t => t.IlSize);
+        var fullMetadataSize = allTypes.Sum(t => t.OverheadSize);
 
-        AnsiConsole.Status()
-                   .Start(
-                       "Analyzing assembly...",
-                       ctx =>
-                       {
-                           assembly = AssemblyAnalyzer.Load(assemblyPath);
-                           resources = assembly.AnalyzeResources();
-                           fullResourcesSize = resources.Sum(r => r.Size);
+        // When filtering, narrow down the already-computed list
+        var filteredTypes = hasFilter
+            ? allTypes.Where(t => t.FullName.StartsWith(settings.NamespaceFilter!)).ToList()
+            : allTypes;
 
-                           // Always compute full-assembly totals for an accurate chart
-                           allTypes = assembly.AnalyzeTypes(null);
-                           fullIlSize = allTypes.Sum(t => t.IlSize);
-                           fullMetadataSize = allTypes.Sum(t => t.OverheadSize);
+        var filteredIlSize = filteredTypes.Sum(t => t.IlSize);
+        var filteredMetadataSize = filteredTypes.Sum(t => t.OverheadSize);
 
-                           // When filtering, get just the filtered types for the tree
-                           filteredTypes = hasFilter
-                               ? assembly.AnalyzeTypes(settings.NamespaceFilter)
-                               : allTypes;
+        // dummy root node to hold the tree, won't be displayed
+        var rootNode = new NamespaceNode(string.Empty, string.Empty);
 
-                           filteredIlSize = filteredTypes.Sum(t => t.IlSize);
-                           filteredMetadataSize = filteredTypes.Sum(t => t.OverheadSize);
+        foreach (var type in allTypes)
+        {
+            var nsSegments = new ArraySegment<string>(type.Namespace.Split('.'));
+            var node = GetOrCreateNamespaceNode(type.Namespace, nsSegments, rootNode);
+            node.AddChild(type);
+        }
 
-                           // dummy root node to hold the tree, won't be displayed
-                           rootNode = new NamespaceNode(string.Empty, string.Empty);
-
-                           foreach (var type in allTypes)
-                           {
-                               var nsSegments = new ArraySegment<string>(type.Namespace.Split('.'));
-                               var node = GetOrCreateNamespaceNode(type.Namespace, nsSegments, rootNode);
-                               node.AddChild(type);
-                           }
-
-                           // update metadata size and total size of all nodes in the tree
-                           _ = rootNode.ComputeTotalSize();
-                       });
+        // update metadata size and total size of all nodes in the tree
+        _ = rootNode.ComputeTotalSize();
 
         AnsiConsole.MarkupLine($"Assembly: [blue]{assembly.FullName}[/]");
         AnsiConsole.WriteLine();

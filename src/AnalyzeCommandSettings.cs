@@ -32,4 +32,9 @@ internal sealed class AnalyzeCommandSettings : CommandSettings
     [DefaultValue(SizeUnit.Auto)]
     [Description("The size unit to use: \"auto\", \"mb\", \"kb\", or \"b\". Default: \"auto\".")]
     public SizeUnit SizeUnits { get; init; }
+
+    [CommandOption("--json")]
+    [DefaultValue(false)]
+    [Description("Output results as JSON only.")]
+    public bool Json { get; init; }
 }
