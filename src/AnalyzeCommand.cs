@@ -36,6 +36,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 
         AssemblyAnalyzer assembly = null!;
         List<ResourceSize> resources = null!;
+        List<TypeSize> allTypes = null!;
         List<TypeSize> filteredTypes = null!;
         long fullResourcesSize = 0;
         long fullIlSize = 0;
@@ -55,7 +56,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
                            fullResourcesSize = resources.Sum(r => r.Size);
 
                            // Always compute full-assembly totals for an accurate chart
-                           var allTypes = assembly.AnalyzeTypes(null);
+                           allTypes = assembly.AnalyzeTypes(null);
                            fullIlSize = allTypes.Sum(t => t.IlSize);
                            fullMetadataSize = allTypes.Sum(t => t.OverheadSize);
 
@@ -70,7 +71,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
                            // dummy root node to hold the tree, won't be displayed
                            rootNode = new NamespaceNode(string.Empty, string.Empty);
 
-                           foreach (var type in filteredTypes)
+                           foreach (var type in allTypes)
                            {
                                var nsSegments = new ArraySegment<string>(type.Namespace.Split('.'));
                                var node = GetOrCreateNamespaceNode(type.Namespace, nsSegments, rootNode);
@@ -252,13 +253,18 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
                 continue;
             }
 
-            if (currentDepth > settings.MaxDepth)
+            // when filtering, ancestor nodes (on the path to the filter) don't count toward depth
+            var isAncestorOfFilter = settings.NamespaceFilter != null &&
+                                     settings.NamespaceFilter.StartsWith(childNamespace.FullNs) &&
+                                     childNamespace.FullNs != settings.NamespaceFilter;
+
+            if (!isAncestorOfFilter && currentDepth > settings.MaxDepth)
             {
                 // AnsiConsole.MarkupLine("Hiding [yellow]{0}[/], too deep.", childNamespace.FullNs);
                 continue;
             }
 
-            if (childNamespace.TotalSize < settings.MinSize)
+            if (!isAncestorOfFilter && childNamespace.TotalSize < settings.MinSize)
             {
                 // AnsiConsole.MarkupLine("Hiding [yellow]{0}[/], too small.", childNamespace.FullNs);
                 continue;
@@ -269,7 +275,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
             AddNamespaceNodes(
                 treeNodes: childTreeNode,
                 nsNodes: childNamespace.ChildNamespaces,
-                currentDepth: currentDepth + 1,
+                currentDepth: isAncestorOfFilter ? currentDepth : currentDepth + 1,
                 totalSize: totalSize,
                 settings: settings,
                 sizeUnits: sizeUnits);
