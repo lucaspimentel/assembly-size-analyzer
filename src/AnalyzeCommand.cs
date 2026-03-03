@@ -36,10 +36,14 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 
         AssemblyAnalyzer assembly = null!;
         List<ResourceSize> resources = null!;
-        List<TypeSize> types;
-        long totalResourcesSize = 0;
-        long totalIlSize = 0;
+        List<TypeSize> filteredTypes = null!;
+        long fullResourcesSize = 0;
+        long fullIlSize = 0;
+        long fullMetadataSize = 0;
+        long filteredIlSize = 0;
+        long filteredMetadataSize = 0;
         NamespaceNode rootNode = null!;
+        var hasFilter = !string.IsNullOrEmpty(settings.NamespaceFilter);
 
         AnsiConsole.Status()
                    .Start(
@@ -47,21 +51,31 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
                        ctx =>
                        {
                            assembly = AssemblyAnalyzer.Load(assemblyPath);
-                           resources = string.IsNullOrEmpty(settings.NamespaceFilter) ? assembly.AnalyzeResources() : [];
-                           types = assembly.AnalyzeTypes(settings.NamespaceFilter);
+                           resources = assembly.AnalyzeResources();
+                           fullResourcesSize = resources.Sum(r => r.Size);
 
-                           // dummy root note to hold the tree, won't be displayed
+                           // Always compute full-assembly totals for an accurate chart
+                           var allTypes = assembly.AnalyzeTypes(null);
+                           fullIlSize = allTypes.Sum(t => t.IlSize);
+                           fullMetadataSize = allTypes.Sum(t => t.OverheadSize);
+
+                           // When filtering, get just the filtered types for the tree
+                           filteredTypes = hasFilter
+                               ? assembly.AnalyzeTypes(settings.NamespaceFilter)
+                               : allTypes;
+
+                           filteredIlSize = filteredTypes.Sum(t => t.IlSize);
+                           filteredMetadataSize = filteredTypes.Sum(t => t.OverheadSize);
+
+                           // dummy root node to hold the tree, won't be displayed
                            rootNode = new NamespaceNode(string.Empty, string.Empty);
 
-                           foreach (var type in types)
+                           foreach (var type in filteredTypes)
                            {
                                var nsSegments = new ArraySegment<string>(type.Namespace.Split('.'));
                                var node = GetOrCreateNamespaceNode(type.Namespace, nsSegments, rootNode);
                                node.AddChild(type);
                            }
-
-                           totalResourcesSize = resources.Sum(r => r.Size);
-                           totalIlSize = types.Sum(t => t.IlSize);
 
                            // update metadata size and total size of all nodes in the tree
                            _ = rootNode.ComputeTotalSize();
@@ -76,10 +90,12 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 
         PrintSizeBreakdownChart(
             assembly.FileSize,
-            assembly.TotalMetadataSize,
-            totalResourcesSize,
-            totalIlSize,
-            breakdownChartSizeUnits);
+            fullMetadataSize,
+            fullResourcesSize,
+            fullIlSize,
+            breakdownChartSizeUnits,
+            hasFilter ? filteredMetadataSize : null,
+            hasFilter ? filteredIlSize : null);
 
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine("The namespace and type sizes in the tree below include IL and an [italic]estimate[/] of metadata size.");
@@ -89,7 +105,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         PrintSizeTree(
             settings: settings,
             rootNamespaces: rootNode.ChildNamespaces,
-            resources: resources);
+            resources: hasFilter ? [] : resources);
 
         return 0;
     }
@@ -161,23 +177,49 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         AnsiConsole.Write(new Padder(tree).PadLeft(1));
     }
 
-    private static void PrintSizeBreakdownChart(long fileSize, long totalMetadataSize, long totalResourcesSize, long totalIlSize, SizeUnit sizeUnits)
+    private static void PrintSizeBreakdownChart(
+        long fileSize,
+        long totalMetadataSize,
+        long totalResourcesSize,
+        long totalIlSize,
+        SizeUnit sizeUnits,
+        long? filteredMetadataSize = null,
+        long? filteredIlSize = null)
     {
         var otherSize = fileSize - totalIlSize - totalMetadataSize - totalResourcesSize;
 
-        (string Text, long Size, Color Color)[] sizes =
-        [
-            ("Metadata", totalMetadataSize, Color.Blue),
-            ("Resources", totalResourcesSize, Color.Yellow),
-            ("IL", totalIlSize, Color.Green),
-            ("Other", otherSize, Color.Red)
-        ];
+        var sizes = new List<(string Text, long Size, Color Color)>();
+
+        if (filteredMetadataSize.HasValue)
+        {
+            // Split metadata into filtered and other segments
+            sizes.Add(("Metadata (filtered)", filteredMetadataSize.Value, Color.Blue));
+            sizes.Add(("Metadata (other)", totalMetadataSize - filteredMetadataSize.Value, Color.Grey));
+        }
+        else
+        {
+            sizes.Add(("Metadata", totalMetadataSize, Color.Blue));
+        }
+
+        if (filteredIlSize.HasValue)
+        {
+            // Split IL into filtered and other segments
+            sizes.Add(("IL (filtered)", filteredIlSize.Value, Color.Green));
+            sizes.Add(("IL (other)", totalIlSize - filteredIlSize.Value, Color.DarkGreen));
+        }
+        else
+        {
+            sizes.Add(("IL", totalIlSize, Color.Green));
+        }
+
+        sizes.Add(("Resources", totalResourcesSize, Color.Yellow));
+        sizes.Add(("Other", otherSize, Color.Red));
 
         var displayedSized = sizes.Where(s => s.Size > 0)
                                   .OrderByDescending(s => s.Size);
 
         var breakdownChart = new BreakdownChart()
-                             .Width(Console.WindowWidth)
+                             .Width(AnsiConsole.Profile.Width)
                              .UseValueFormatter(d => $"{FormatSizeWithPercent((long)d, fileSize, sizeUnits)}");
 
         foreach (var (text, size, color) in displayedSized)

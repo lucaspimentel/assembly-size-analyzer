@@ -33,24 +33,24 @@ public sealed class AssemblyAnalyzer : IDisposable
 
     public List<TypeSize> AnalyzeTypes(string? @namespace)
     {
-        // First pass: compute per-type metadata
-        var types = _assembly.MainModule.Types
-                              .Where(t => @namespace == null || t.FullName.StartsWith(@namespace))
-                              .Select(t => new TypeSize(t.FullName, ComputeIlSize(t), ComputeMetadataSize(t)))
-                              .ToList();
+        // Always compute per-type metadata for ALL types first,
+        // so unaccounted metadata is distributed fairly across the full assembly
+        var allTypes = _assembly.MainModule.Types
+                                .Select(t => new TypeSize(t.FullName, ComputeIlSize(t), ComputeMetadataSize(t)))
+                                .ToList();
 
         // Calculate unaccounted metadata (assembly-level overhead)
-        var computedMetadata = types.Sum(t => t.OverheadSize);
+        var computedMetadata = allTypes.Sum(t => t.OverheadSize);
         var unaccountedMetadata = TotalMetadataSize - computedMetadata;
 
-        // If we have unaccounted metadata, distribute it proportionally across types
-        if (unaccountedMetadata > 0 && types.Count > 0)
+        // If we have unaccounted metadata, distribute it proportionally across ALL types
+        if (unaccountedMetadata > 0 && allTypes.Count > 0)
         {
-            var totalComputedSize = types.Sum(t => t.TotalSize);
+            var totalComputedSize = allTypes.Sum(t => t.TotalSize);
 
             if (totalComputedSize > 0)
             {
-                types = types.Select(t =>
+                allTypes = allTypes.Select(t =>
                 {
                     // Distribute unaccounted metadata proportionally to each type's size
                     var proportion = (double)t.TotalSize / totalComputedSize;
@@ -60,7 +60,13 @@ public sealed class AssemblyAnalyzer : IDisposable
             }
         }
 
-        return types;
+        // Filter after distribution so each type has its fair share of metadata
+        if (@namespace != null)
+        {
+            return allTypes.Where(t => t.FullName.StartsWith(@namespace)).ToList();
+        }
+
+        return allTypes;
     }
 
     public List<ResourceSize> AnalyzeResources()
