@@ -1,9 +1,13 @@
 .idea/
 .vs/
 .vscode/
+
 bin/
 obj/
 artifacts/
 publish/
+samples/
+
 *.suo
 *.user
+.claude/*.local.*
