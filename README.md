@@ -17,6 +17,9 @@ dotnet run --project src/AssemblySizeAnalyzer.csproj -- <path-to-assembly>
 
 # Publish as single-file executable
 dotnet publish src/AssemblySizeAnalyzer.csproj -c Release
+
+# Install to ~/.local/bin
+./install-local.ps1
 ```
 
 ### Options
@@ -28,6 +31,7 @@ dotnet publish src/AssemblySizeAnalyzer.csproj -c Release
 | `--min-size N` | Minimum size in bytes to display | `1000` |
 | `--namespace NS` | Filter to specific namespace and children | |
 | `--size-units UNIT` | Display units: `auto`, `mb`, `kb`, `b` | `auto` |
+| `--json` | Output results as JSON only | `false` |
 
 ## Screenshot
 
