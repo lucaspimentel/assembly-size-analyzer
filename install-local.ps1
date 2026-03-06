@@ -44,7 +44,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$ProjectName = 'AssemblySizeAnalyzer'
+$ProjectName = 'analyze-assembly-size'
 $ProjectFile = 'src/AssemblySizeAnalyzer.csproj'
 
 # Check if the local clone is up-to-date with remote
