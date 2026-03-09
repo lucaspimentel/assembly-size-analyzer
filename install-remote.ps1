@@ -29,7 +29,7 @@
     Downloads and installs version 1.0.0 of analyze-assembly-size.
 
 .EXAMPLE
-    irm https://raw.githubusercontent.com/lucaspimentel/assembly-size-analyzer/main/install-remote.ps1 | iex
+    irm https://raw.githubusercontent.com/lucaspimentel/analyze-assembly-size/main/install-remote.ps1 | iex
 
     One-liner to download and run this installer script directly from GitHub.
 #>
@@ -47,7 +47,7 @@ $ErrorActionPreference = 'Stop'
 
 $ProjectName = 'analyze-assembly-size'
 $GitHubOwner = 'lucaspimentel'
-$GitHubRepo = 'assembly-size-analyzer'
+$GitHubRepo = 'analyze-assembly-size'
 
 # Determine runtime identifier and archive extension
 $rid = if ($IsWindows) {

@@ -23,7 +23,7 @@ Or install a specific version:
 One-liner from GitHub:
 
 ```bash
-irm https://raw.githubusercontent.com/lucaspimentel/assembly-size-analyzer/main/install-remote.ps1 | iex
+irm https://raw.githubusercontent.com/lucaspimentel/analyze-assembly-size/main/install-remote.ps1 | iex
 ```
 
 ### From source
