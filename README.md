@@ -6,6 +6,13 @@ For a version of **Sizer.Net** that targets .NET 9, see fork: https://github.com
 
 ## Installation
 
+### Scoop (Windows)
+
+```powershell
+scoop bucket add lucaspimentel https://github.com/lucaspimentel/scoop-bucket
+scoop install analyze-assembly-size
+```
+
 ### From GitHub releases (recommended)
 
 Download and install pre-built binaries for Windows or Linux:
