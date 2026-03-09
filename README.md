@@ -4,22 +4,49 @@ Based on **Sizer.Net**, a WinForms tool which targets .NET Framework 4.5: https:
 
 For a version of **Sizer.Net** that targets .NET 9, see fork: https://github.com/lucaspimentel/sizer-net.
 
-## Usage
+## Installation
+
+### From GitHub releases (recommended)
+
+Download and install pre-built binaries for Windows or Linux:
+
+```bash
+./install-remote.ps1
+```
+
+Or install a specific version:
+
+```bash
+./install-remote.ps1 -Version 1.0.0
+```
+
+One-liner from GitHub:
+
+```bash
+irm https://raw.githubusercontent.com/lucaspimentel/assembly-size-analyzer/main/install-remote.ps1 | iex
+```
+
+### From source
 
 Requires .NET 10 SDK.
 
 ```bash
-# Build
-dotnet build src/AssemblySizeAnalyzer.csproj
-
-# Run
-dotnet run --project src/AssemblySizeAnalyzer.csproj -- <path-to-assembly>
-
-# Publish as single-file executable
-dotnet publish src/AssemblySizeAnalyzer.csproj -c Release
-
-# Install to ~/.local/bin
+# Build and install to ~/.local/bin
 ./install-local.ps1
+
+# Or build manually
+dotnet build src/AssemblySizeAnalyzer.csproj
+dotnet publish src/AssemblySizeAnalyzer.csproj -c Release
+```
+
+## Usage
+
+```bash
+# Run with a path to an assembly
+analyze-assembly-size <path-to-assembly>
+
+# Or if not in PATH, run the local script
+dotnet run --project src/AssemblySizeAnalyzer.csproj -- <path-to-assembly>
 ```
 
 ### Options
