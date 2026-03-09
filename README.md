@@ -13,38 +13,25 @@ scoop bucket add lucaspimentel https://github.com/lucaspimentel/scoop-bucket
 scoop install analyze-assembly-size
 ```
 
-### From GitHub releases (recommended)
+### Download pre-built binary
 
-Download and install pre-built binaries for Windows or Linux:
+Requires PowerShell 7+.
 
-```bash
-./install-remote.ps1
-```
-
-Or install a specific version:
-
-```bash
-./install-remote.ps1 -Version 1.0.0
-```
-
-One-liner from GitHub:
-
-```bash
+```pwsh
 irm https://raw.githubusercontent.com/lucaspimentel/analyze-assembly-size/main/install-remote.ps1 | iex
 ```
 
-### From source
+### Build from source
 
-Requires .NET 10 SDK.
+Requires PowerShell 7+ and [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
-```bash
-# Build and install to ~/.local/bin
+```pwsh
+git clone https://github.com/lucaspimentel/analyze-assembly-size
+cd analyze-assembly-size
 ./install-local.ps1
-
-# Or build manually
-dotnet build src/AssemblySizeAnalyzer.csproj
-dotnet publish src/AssemblySizeAnalyzer.csproj -c Release
 ```
+
+Both scripts install to `~/.local/bin/analyze-assembly-size`. Ensure that directory is in your `PATH`.
 
 ## Usage
 
