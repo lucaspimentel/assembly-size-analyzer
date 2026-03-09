@@ -1,4 +1,6 @@
-A cross-platform command-line tool that analyzes the contents of a .NET assembly file, estimates the file size in bytes used by each type, and shows the results as a tree, grouped by namespace.
+A command-line tool that analyzes the size of .NET assemblies, grouped by namespace.
+
+Pre-built binaries support Windows and Linux. macOS is supported when built from source.
 
 Based on **Sizer.Net**, a WinForms tool which targets .NET Framework 4.5: https://github.com/schellingb/sizer-net.
 
