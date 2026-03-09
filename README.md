@@ -1,3 +1,7 @@
+# analyze-assembly-size
+
+[![CI](https://github.com/lucaspimentel/analyze-assembly-size/actions/workflows/ci.yml/badge.svg)](https://github.com/lucaspimentel/analyze-assembly-size/actions/workflows/ci.yml) [![Release](https://github.com/lucaspimentel/analyze-assembly-size/actions/workflows/release.yml/badge.svg)](https://github.com/lucaspimentel/analyze-assembly-size/actions/workflows/release.yml)
+
 A command-line tool that analyzes the size of .NET assemblies, grouped by namespace.
 
 Pre-built binaries support Windows and Linux. macOS is supported when built from source.
