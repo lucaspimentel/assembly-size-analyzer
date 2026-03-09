@@ -36,11 +36,7 @@ Both scripts install to `~/.local/bin/analyze-assembly-size`. Ensure that direct
 ## Usage
 
 ```bash
-# Run with a path to an assembly
 analyze-assembly-size <path-to-assembly>
-
-# Or if not in PATH, run the local script
-dotnet run --project src/AssemblySizeAnalyzer.csproj -- <path-to-assembly>
 ```
 
 ### Options
