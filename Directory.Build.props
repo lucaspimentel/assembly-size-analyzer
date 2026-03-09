@@ -1,5 +1,6 @@
 <Project>
   <PropertyGroup>
     <UseArtifactsOutput>true</UseArtifactsOutput>
+    <Version>1.0.0-beta.1</Version>
   </PropertyGroup>
 </Project>
