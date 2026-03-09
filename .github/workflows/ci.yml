@@ -1,7 +1,8 @@
 name: CI
 
 env:
-  PROJECT_NAME: analyze-assembly-size
+  ASSEMBLY_NAME: analyze-assembly-size
+  PROJECT_NAME: AssemblySizeAnalyzer
   PROJECT_FILE: src/AssemblySizeAnalyzer.csproj
 
 on:
@@ -52,5 +53,5 @@ jobs:
     - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: ${{ env.PROJECT_NAME }}-${{ matrix.rid }}
+        name: ${{ env.ASSEMBLY_NAME }}-${{ matrix.rid }}
         path: artifacts/publish/${{ env.PROJECT_NAME }}/release_${{ matrix.rid }}/
