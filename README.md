@@ -44,9 +44,9 @@ analyze-assembly-size <path-to-assembly>
 | Option | Description | Default |
 |---|---|---|
 | `--show-types` | Display individual types within namespaces | `false` |
-| `--max-depth N` | Maximum tree depth | `4` |
-| `--min-size N` | Minimum size in bytes to display | `1000` |
-| `--namespace NS` | Filter to specific namespace and children | |
+| `--max-depth N` | Maximum tree depth (deeper nodes are hidden) | `4` |
+| `--min-size N` | Minimum size in bytes to display (smaller nodes are hidden) | `1000` |
+| `--namespace NS` | Filter to specific namespace and children (other nodes are hidden) | |
 | `--size-units UNIT` | Display units: `auto`, `mb`, `kb`, `b` | `auto` |
 | `--json` | Output results as JSON only | `false` |
 
