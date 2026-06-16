@@ -1,10 +1,16 @@
 # Changelog
 
-## Unreleased
+## [v1.0.0-beta.2] - 2026-06-16
+
+### Added
+- Add SHA256 checksum verification to remote install script
 
 ### Changed
-- Clarify descriptions for command line options
-- Update installation instructions and add Scoop install method
+- Update NuGet dependencies to latest versions
+- Update GitHub Actions to latest versions
+- Update README description and add platform support note
+- Update installation and usage instructions and add Scoop install method
+- Clarify command line option descriptions
 - Add CI and Release workflow badges to README
 - Rename repo to analyze-assembly-size
 
