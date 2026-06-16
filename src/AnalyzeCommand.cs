@@ -6,7 +6,7 @@ namespace AssemblySizeAnalyzer;
 
 internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
 {
-    public override ValidationResult Validate(CommandContext context, AnalyzeCommandSettings settings)
+    protected override ValidationResult Validate(CommandContext context, AnalyzeCommandSettings settings)
     {
         var result = base.Validate(context, settings);
 
@@ -23,7 +23,7 @@ internal sealed class AnalyzeCommand : Command<AnalyzeCommandSettings>
         return result;
     }
 
-    public override int Execute(CommandContext context, AnalyzeCommandSettings settings)
+    protected override int Execute(CommandContext context, AnalyzeCommandSettings settings, CancellationToken cancellationToken)
     {
         var assemblyPath = ExpandPath(settings.AssemblyPath);
 
